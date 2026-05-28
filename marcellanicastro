@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Calculadora de Prazos Judiciais — Nicastro Soller Advogados</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.2/babel.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f4f4f4;}
+select,input,button{font-family:inherit;}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const {useState}=React;
+
+const feriadosNacionais=new Set([
+  "2025-01-01","2025-03-04","2025-03-05","2025-04-18","2025-04-21","2025-05-01",
+  "2025-06-19","2025-09-07","2025-10-12","2025-11-02","2025-11-15","2025-11-20","2025-12-25",
+  "2026-01-01","2026-02-17","2026-02-18","2026-04-03","2026-04-21","2026-05-01",
+  "2026-06-04","2026-09-07","2026-10-12","2026-11-02","2026-11-15","2026-11-20","2026-12-25",
+  "2027-01-01","2027-02-16","2027-02-17","2027-04-02","2027-04-21","2027-05-01",
+  "2027-05-27","2027-09-07","2027-10-12","2027-11-02","2027-11-15","2027-11-20","2027-12-25",
+]);
+const feriadosEstaduais={
+  SP:new Set(["2025-01-25","2025-07-09","2026-01-25","2026-07-09","2027-01-25","2027-07-09"]),
+  RJ:new Set(["2025-01-20","2025-04-23","2026-01-20","2026-04-23","2027-01-20","2027-04-23"]),
+  MG:new Set(["2025-04-21","2026-04-21","2027-04-21"]),
+  RS:new Set(["2025-09-20","2026-09-20","2027-09-20"]),
+  BA:new Set(["2025-07-02","2026-07-02","2027-07-02"]),
+  PE:new Set(["2025-03-06","2026-03-06","2027-03-06"]),
+  CE:new Set(["2025-03-25","2026-03-25","2027-03-25"]),
+  DF:new Set(["2025-04-21","2026-04-21","2027-04-21"]),
+  PR:new Set(["2025-12-19","2026-12-19","2027-12-19"]),
+  SC:new Set(["2025-08-11","2026-08-11","2027-08-11"]),
+  MT:new Set(["2025-11-08","2026-11-08","2027-11-08"]),
+  MS:new Set(["2025-10-11","2026-10-11","2027-10-11"]),
+  GO:new Set(["2025-10-24","2026-10-24","2027-10-24"]),
+  AM:new Set(["2025-09-05","2026-09-05","2027-09-05"]),
+  PA:new Set(["2025-08-15","2026-08-15","2027-08-15"]),
+  MA:new Set(["2025-07-28","2026-07-28","2027-07-28"]),
+  ES:new Set(["2025-10-22","2026-10-22","2027-10-22"]),
+  AL:new Set(["2025-09-16","2026-09-16","2027-09-16"]),
+  SE:new Set(["2025-07-08","2026-07-08","2027-07-08"]),
+  RN:new Set(["2025-10-03","2026-10-03","2027-10-03"]),
+  PI:new Set(["2025-10-19","2026-10-19","2027-10-19"]),
+  PB:new Set(["2025-08-05","2026-08-05","2027-08-05"]),
+  RO:new Set(["2025-01-04","2026-01-04","2027-01-04"]),
+};
+
+function emRecesso(d){const m=d.getMonth()+1,dia=d.getDate();if((m===12&&dia>=20)||(m===1&&dia<=20))return true;if(m===7)return true;return false;}
+
+const tribunais={
+  civel:[
+    {id:"tjsp",label:"TJSP – São Paulo",uf:"SP"},{id:"tjrj",label:"TJRJ – Rio de Janeiro",uf:"RJ"},
+    {id:"tjmg",label:"TJMG – Minas Gerais",uf:"MG"},{id:"tjrs",label:"TJRS – Rio Grande do Sul",uf:"RS"},
+    {id:"tjpr",label:"TJPR – Paraná",uf:"PR"},{id:"tjsc",label:"TJSC – Santa Catarina",uf:"SC"},
+    {id:"tjba",label:"TJBA – Bahia",uf:"BA"},{id:"tjpe",label:"TJPE – Pernambuco",uf:"PE"},
+    {id:"tjce",label:"TJCE – Ceará",uf:"CE"},{id:"tjgo",label:"TJGO – Goiás",uf:"GO"},
+    {id:"tjma",label:"TJMA – Maranhão",uf:"MA"},{id:"tjes",label:"TJES – Espírito Santo",uf:"ES"},
+    {id:"tjmt",label:"TJMT – Mato Grosso",uf:"MT"},{id:"tjms",label:"TJMS – Mato Grosso do Sul",uf:"MS"},
+    {id:"tjam",label:"TJAM – Amazonas",uf:"AM"},{id:"tjpa",label:"TJPA – Pará",uf:"PA"},
+    {id:"tjal",label:"TJAL – Alagoas",uf:"AL"},{id:"tjse",label:"TJSE – Sergipe",uf:"SE"},
+    {id:"tjrn",label:"TJRN – Rio Grande do Norte",uf:"RN"},{id:"tjpi",label:"TJPI – Piauí",uf:"PI"},
+    {id:"tjpb",label:"TJPB – Paraíba",uf:"PB"},
+    {id:"trf1",label:"TRF-1ª Região (DF/Norte/Nordeste)",uf:"DF"},{id:"trf2",label:"TRF-2ª Região (RJ/ES)",uf:"RJ"},
+    {id:"trf3",label:"TRF-3ª Região (SP/MS)",uf:"SP"},{id:"trf4",label:"TRF-4ª Região (Sul)",uf:"RS"},
+    {id:"trf5",label:"TRF-5ª Região (Nordeste)",uf:"PE"},{id:"trf6",label:"TRF-6ª Região (MG)",uf:"MG"},
+    {id:"stj",label:"STJ",uf:"DF"},{id:"stf",label:"STF",uf:"DF"},
+  ],
+  criminal:[
+    {id:"tjsp_cr",label:"TJSP – Criminal",uf:"SP"},{id:"tjrj_cr",label:"TJRJ – Criminal",uf:"RJ"},
+    {id:"tjmg_cr",label:"TJMG – Criminal",uf:"MG"},{id:"tjrs_cr",label:"TJRS – Criminal",uf:"RS"},
+    {id:"tjpr_cr",label:"TJPR – Criminal",uf:"PR"},{id:"tjba_cr",label:"TJBA – Criminal",uf:"BA"},
+    {id:"tjpe_cr",label:"TJPE – Criminal",uf:"PE"},{id:"trf1_cr",label:"TRF-1ª – Criminal",uf:"DF"},
+    {id:"trf2_cr",label:"TRF-2ª – Criminal",uf:"RJ"},{id:"trf3_cr",label:"TRF-3ª – Criminal",uf:"SP"},
+    {id:"trf4_cr",label:"TRF-4ª – Criminal",uf:"RS"},{id:"trf5_cr",label:"TRF-5ª – Criminal",uf:"PE"},
+    {id:"stj_cr",label:"STJ – Criminal",uf:"DF"},{id:"stf_cr",label:"STF – Criminal",uf:"DF"},
+  ],
+  trabalhista:[
+    {id:"trt1",label:"TRT-1ª Região (RJ)",uf:"RJ"},{id:"trt2",label:"TRT-2ª Região (SP)",uf:"SP"},
+    {id:"trt3",label:"TRT-3ª Região (MG)",uf:"MG"},{id:"trt4",label:"TRT-4ª Região (RS)",uf:"RS"},
+    {id:"trt5",label:"TRT-5ª Região (BA)",uf:"BA"},{id:"trt6",label:"TRT-6ª Região (PE)",uf:"PE"},
+    {id:"trt7",label:"TRT-7ª Região (CE)",uf:"CE"},{id:"trt8",label:"TRT-8ª Região (PA/AP)",uf:"PA"},
+    {id:"trt9",label:"TRT-9ª Região (PR)",uf:"PR"},{id:"trt10",label:"TRT-10ª Região (DF/TO)",uf:"DF"},
+    {id:"trt11",label:"TRT-11ª Região (AM/RR)",uf:"AM"},{id:"trt12",label:"TRT-12ª Região (SC)",uf:"SC"},
+    {id:"trt13",label:"TRT-13ª Região (PB)",uf:"PB"},{id:"trt14",label:"TRT-14ª Região (RO/AC)",uf:"RO"},
+    {id:"trt15",label:"TRT-15ª Região (Campinas/SP)",uf:"SP"},{id:"trt16",label:"TRT-16ª Região (MA)",uf:"MA"},
+    {id:"trt17",label:"TRT-17ª Região (ES)",uf:"ES"},{id:"trt18",label:"TRT-18ª Região (GO)",uf:"GO"},
+    {id:"trt19",label:"TRT-19ª Região (AL)",uf:"AL"},{id:"trt20",label:"TRT-20ª Região (SE)",uf:"SE"},
+    {id:"trt21",label:"TRT-21ª Região (RN)",uf:"RN"},{id:"trt22",label:"TRT-22ª Região (PI)",uf:"PI"},
+    {id:"trt23",label:"TRT-23ª Região (MT)",uf:"MT"},{id:"trt24",label:"TRT-24ª Região (MS)",uf:"MS"},
+    {id:"tst",label:"TST",uf:"DF"},
+  ],
+  eleitoral:[
+    {id:"tre_sp",label:"TRE-SP",uf:"SP"},{id:"tre_rj",label:"TRE-RJ",uf:"RJ"},
+    {id:"tre_mg",label:"TRE-MG",uf:"MG"},{id:"tre_rs",label:"TRE-RS",uf:"RS"},
+    {id:"tre_pr",label:"TRE-PR",uf:"PR"},{id:"tre_ba",label:"TRE-BA",uf:"BA"},
+    {id:"tre_pe",label:"TRE-PE",uf:"PE"},{id:"tse",label:"TSE",uf:"DF"},
+  ],
+};
+
+const prazosConfig={
+  civel:[
+    {grupo:"Petição Inicial e Resposta",label:"Emenda da petição inicial (art. 321)",dias:15,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Contestação (art. 335)",dias:15,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Contestação – Fazenda Pública/MP (art. 183/180)",dias:30,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Reconvenção – resposta (art. 343)",dias:15,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Réplica / manifestação sobre contestação (arts. 350/351)",dias:15,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Tutela antecipada antecedente – aditamento (art. 303, I)",dias:15,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Tutela cautelar antecedente – contestação (art. 306)",dias:5,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Tutela cautelar – pedido principal (art. 308)",dias:30,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Impugnação ao valor da causa (art. 293)",dias:15,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Impugnação à justiça gratuita (art. 100)",dias:15,tipo:"uteis"},
+    {grupo:"Petição Inicial e Resposta",label:"Recolhimento de custas após revogação de gratuidade (art. 101, §2º)",dias:5,tipo:"uteis"},
+    {grupo:"Provas",label:"Rol de testemunhas após saneador (art. 357, §4º)",dias:15,tipo:"uteis"},
+    {grupo:"Provas",label:"Arguição de impedimento do perito (art. 465, §1º)",dias:15,tipo:"uteis"},
+    {grupo:"Provas",label:"Manifestação sobre laudo pericial (art. 477, §1º)",dias:15,tipo:"uteis"},
+    {grupo:"Provas",label:"Esclarecimentos pelo perito (art. 477, §2º)",dias:15,tipo:"uteis"},
+    {grupo:"Provas",label:"Arguição de falsidade documental (art. 430)",dias:15,tipo:"uteis"},
+    {grupo:"Provas",label:"Manifestação sobre documento juntado (art. 437, §1º)",dias:15,tipo:"uteis"},
+    {grupo:"Provas",label:"Resposta ao pedido de exibição de documento (art. 398)",dias:5,tipo:"uteis"},
+    {grupo:"Provas",label:"Razões finais escritas (art. 364, §2º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Apelação (art. 1.003, §5º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Contrarrazões de Apelação (art. 1.010, §1º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Agravo de Instrumento (art. 1.003, §5º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Agravo de Instrumento – resposta (art. 1.019, II)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Agravo Interno (art. 1.003, §5º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Contrarrazões ao Agravo Interno (art. 1.021, §2º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Recurso Ordinário (art. 1.003, §5º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Recurso Especial (art. 1.003, §5º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Contrarrazões ao REsp/RE (art. 1.030)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Recurso Extraordinário (art. 1.003, §5º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Agravo em REsp/RE (art. 1.003, §5º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Resposta ao Agravo em REsp/RE (art. 1.042, §3º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Embargos de Divergência (art. 1.003, §5º)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Embargos de Declaração (art. 1.023)",dias:5,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Manifestação sobre ED antes da decisão (art. 1.023, §2º)",dias:5,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Agravo regimental contra decisão de relator (art. 1.070)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Ação Rescisória – contestação (art. 970)",dias:15,tipo:"uteis"},
+    {grupo:"Recursos Cíveis",label:"Ação Rescisória – razões finais (art. 973)",dias:10,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Cumprimento de sentença – pagamento voluntário (art. 523)",dias:15,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Impugnação ao cumprimento de sentença (art. 525)",dias:15,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Impugnação – fato superveniente / penhora (art. 525, §11º)",dias:15,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Impugnação do valor depositado (art. 526)",dias:5,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Impugnação – Fazenda Pública (art. 535)",dias:30,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Embargos à execução (art. 915)",dias:15,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Embargos – manifestação contrária (art. 920, I)",dias:15,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Embargos – Fazenda Pública (art. 910)",dias:30,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Citação para pagamento – execução (art. 829)",dias:3,tipo:"corridos"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Pagamento de alimentos ou justificativa (art. 528)",dias:3,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Substituição do bem penhorado (art. 847)",dias:10,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Embargos de Terceiro – oposição (art. 675)",dias:5,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Embargos de Terceiro – contestação (art. 679)",dias:15,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Ação monitória – cumprimento (art. 701)",dias:15,tipo:"uteis"},
+    {grupo:"Cumprimento de Sentença / Execução",label:"Liquidação de sentença – contestação (art. 511)",dias:15,tipo:"uteis"},
+    {grupo:"Procedimentos Especiais",label:"Inventário – primeiras declarações (art. 620)",dias:20,tipo:"uteis"},
+    {grupo:"Procedimentos Especiais",label:"Inventário – manifestação sobre declarações (art. 627)",dias:15,tipo:"uteis"},
+    {grupo:"Procedimentos Especiais",label:"Inventário – laudo de avaliação (art. 635)",dias:15,tipo:"uteis"},
+    {grupo:"Procedimentos Especiais",label:"Partilha – esboço do partidor (art. 652)",dias:15,tipo:"uteis"},
+    {grupo:"Procedimentos Especiais",label:"Ação de alimentos – contestação (art. 695/335)",dias:15,tipo:"uteis"},
+    {grupo:"Procedimentos Especiais",label:"Prestação de contas – contestação (art. 550)",dias:15,tipo:"uteis"},
+    {grupo:"Procedimentos Especiais",label:"Interdição – contestação (art. 752)",dias:15,tipo:"uteis"},
+    {grupo:"Incidentes Processuais",label:"Impedimento/suspeição – alegação (art. 146)",dias:15,tipo:"uteis"},
+    {grupo:"Incidentes Processuais",label:"IRDR – prestação de informações (arts. 982/983)",dias:15,tipo:"uteis"},
+    {grupo:"Incidentes Processuais",label:"Desconsideração da personalidade jurídica (art. 135)",dias:15,tipo:"uteis"},
+    {grupo:"Incidentes Processuais",label:"Generalíssimo – sem prazo legal (art. 218, §3º)",dias:5,tipo:"uteis"},
+    {grupo:"Incidentes Processuais",label:"Personalizado...",dias:null,tipo:"uteis"},
+  ],
+  criminal:[
+    {grupo:"Inquérito Policial",label:"IP – réu preso (art. 10, CPP)",dias:10,tipo:"corridos"},
+    {grupo:"Inquérito Policial",label:"IP – réu solto (art. 10, CPP)",dias:30,tipo:"corridos"},
+    {grupo:"Inquérito Policial",label:"IP – Lei de Tóxicos preso (art. 51, Lei 11.343/06)",dias:30,tipo:"corridos"},
+    {grupo:"Inquérito Policial",label:"IP – Lei de Tóxicos solto (art. 51, Lei 11.343/06)",dias:90,tipo:"corridos"},
+    {grupo:"Inquérito Policial",label:"IP – PF preso (art. 66, Lei 5.010/66)",dias:15,tipo:"corridos"},
+    {grupo:"Inquérito Policial",label:"Ação penal privada – decadência (art. 38, CPP)",dias:180,tipo:"corridos"},
+    {grupo:"Defesa e Resposta",label:"Resposta à acusação – rito comum (art. 396, CPP)",dias:10,tipo:"corridos"},
+    {grupo:"Defesa e Resposta",label:"Resposta à acusação – Júri (art. 406, CPP)",dias:10,tipo:"corridos"},
+    {grupo:"Defesa e Resposta",label:"Resposta à acusação – STJ/STF (art. 4º, Lei 8.038/90)",dias:15,tipo:"corridos"},
+    {grupo:"Defesa e Resposta",label:"Alegações finais escritas (art. 403, §3º, CPP)",dias:5,tipo:"corridos"},
+    {grupo:"Defesa e Resposta",label:"Laudo pericial (art. 160, §único, CPP)",dias:10,tipo:"corridos"},
+    {grupo:"Defesa e Resposta",label:"Exame de sanidade mental (art. 150, §1º, CPP)",dias:45,tipo:"corridos"},
+    {grupo:"Defesa e Resposta",label:"Perdão – aceite pelo querelado (art. 58, CPP)",dias:3,tipo:"corridos"},
+    {grupo:"Recursos Criminais",label:"Apelação criminal – interposição (art. 593, CPP)",dias:5,tipo:"corridos"},
+    {grupo:"Recursos Criminais",label:"Apelação criminal – razões (art. 600, CPP)",dias:8,tipo:"corridos"},
+    {grupo:"Recursos Criminais",label:"Apelação – Júri / juiz singular (art. 598, §único, CPP)",dias:15,tipo:"corridos"},
+    {grupo:"Recursos Criminais",label:"Recurso em Sentido Estrito – RESE (art. 586, CPP)",dias:5,tipo:"corridos"},
+    {grupo:"Recursos Criminais",label:"Embargos de Declaração criminais (art. 619, CPP)",dias:2,tipo:"corridos"},
+    {grupo:"Recursos Criminais",label:"Agravo em Execução – LEP (art. 197, LEP)",dias:5,tipo:"corridos"},
+    {grupo:"Recursos Criminais",label:"Apelação no JECRIM (art. 82, §1º, Lei 9.099/95)",dias:10,tipo:"uteis"},
+    {grupo:"Prisão e Cautelares",label:"Prisão temporária – comum (art. 2º, Lei 7.960/89)",dias:5,tipo:"corridos"},
+    {grupo:"Prisão e Cautelares",label:"Prisão temporária – hediondo (art. 2º, §4º, Lei 8.072/90)",dias:30,tipo:"corridos"},
+    {grupo:"Prisão e Cautelares",label:"Sequestro – propor ação penal (art. 131, I, CPP)",dias:60,tipo:"corridos"},
+    {grupo:"Prisão e Cautelares",label:"Personalizado...",dias:null,tipo:"corridos"},
+  ],
+  trabalhista:[
+    {grupo:"Conhecimento",label:"Contestação – CPC subsidiário (art. 335)",dias:15,tipo:"uteis"},
+    {grupo:"Conhecimento",label:"Impugnação aos cálculos de liquidação (art. 884, CLT)",dias:5,tipo:"uteis"},
+    {grupo:"Conhecimento",label:"Embargos à execução trabalhista (art. 884, CLT)",dias:5,tipo:"uteis"},
+    {grupo:"Recursos Trabalhistas",label:"Recurso Ordinário (art. 895, CLT)",dias:8,tipo:"uteis"},
+    {grupo:"Recursos Trabalhistas",label:"Contrarrazões de Recurso Ordinário (art. 900, CLT)",dias:8,tipo:"uteis"},
+    {grupo:"Recursos Trabalhistas",label:"Recurso de Revista (art. 896, CLT)",dias:8,tipo:"uteis"},
+    {grupo:"Recursos Trabalhistas",label:"Contrarrazões de Recurso de Revista (art. 900, CLT)",dias:8,tipo:"uteis"},
+    {grupo:"Recursos Trabalhistas",label:"Agravo de Instrumento trabalhista (art. 897, b, CLT)",dias:8,tipo:"uteis"},
+    {grupo:"Recursos Trabalhistas",label:"Embargos no TST (art. 894, II, CLT)",dias:8,tipo:"uteis"},
+    {grupo:"Recursos Trabalhistas",label:"Embargos de Declaração trabalhistas (art. 897-A, CLT)",dias:5,tipo:"uteis"},
+    {grupo:"Recursos Trabalhistas",label:"Agravo de Petição (art. 897, a, CLT)",dias:8,tipo:"uteis"},
+    {grupo:"Prescrição e Decadência",label:"Prescrição bienal – ajuizar após rescisão (art. 7º, XXIX, CF)",dias:730,tipo:"corridos"},
+    {grupo:"Prescrição e Decadência",label:"Rescisão – pagamento de verbas (art. 477, §6º, CLT)",dias:10,tipo:"corridos"},
+    {grupo:"Prescrição e Decadência",label:"Personalizado...",dias:null,tipo:"uteis"},
+  ],
+  eleitoral:[
+    {grupo:"Recursos Eleitorais",label:"Recurso Eleitoral (art. 169, CE)",dias:3,tipo:"corridos"},
+    {grupo:"Recursos Eleitorais",label:"Recurso Especial Eleitoral (art. 276, CE)",dias:3,tipo:"corridos"},
+    {grupo:"Recursos Eleitorais",label:"Contrarrazões de recurso eleitoral (art. 169, §2º, CE)",dias:3,tipo:"corridos"},
+    {grupo:"Recursos Eleitorais",label:"Embargos de Declaração eleitorais (art. 275, §1º, CE)",dias:3,tipo:"corridos"},
+    {grupo:"Recursos Eleitorais",label:"Recurso contra propaganda irregular – 24h (art. 96, §8º)",dias:1,tipo:"corridos"},
+    {grupo:"Ações Eleitorais",label:"AIJE – prazo de propositura (art. 22, LC 64/90)",dias:15,tipo:"corridos"},
+    {grupo:"Ações Eleitorais",label:"AIJE – contestação (art. 3º, LC 64/90)",dias:5,tipo:"corridos"},
+    {grupo:"Ações Eleitorais",label:"AIME – propositura após diplomação (art. 14, §10, CF)",dias:15,tipo:"corridos"},
+    {grupo:"Ações Eleitorais",label:"AIRC – impugnação de registro (art. 3º, LC 64/90)",dias:5,tipo:"corridos"},
+    {grupo:"Ações Eleitorais",label:"Captação ilícita de sufrágio (art. 41-A, Lei 9.504/97)",dias:15,tipo:"corridos"},
+    {grupo:"Ações Eleitorais",label:"Personalizado...",dias:null,tipo:"corridos"},
+  ],
+};
+
+const ramoLabels={civel:"Cível",criminal:"Criminal",trabalhista:"Trabalhista",eleitoral:"Eleitoral"};
+const ramoColors={civel:"#b02626",criminal:"#2d3561",trabalhista:"#1a5c38",eleitoral:"#7c4d00"};
+
+function fmt(d){return d.toLocaleDateString("pt-BR",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});}
+function toISO(d){return d.toISOString().slice(0,10);}
+function addDays(d,n){const r=new Date(d);r.setDate(r.getDate()+n);return r;}
+function isFer(d,uf){const iso=toISO(d);return feriadosNacionais.has(iso)||(uf&&feriadosEstaduais[uf]?.has(iso));}
+function isUtil(d,uf,rec){if(d.getDay()===0||d.getDay()===6)return false;if(isFer(d,uf))return false;if(rec&&emRecesso(d))return false;return true;}
+
+function calcular(inicio,qtd,tipo,uf,rec){
+  if(qtd===0)return{vencimento:inicio,eventos:[]};
+  let atual=addDays(inicio,1);const ev=[];
+  if(tipo==="corridos"){
+    let c=0;
+    while(c<qtd){ev.push({data:new Date(atual),feriado:isFer(atual,uf),recesso:rec&&emRecesso(atual),contado:true});c++;if(c<qtd)atual=addDays(atual,1);}
+    while(!isUtil(atual,uf,rec)){atual=addDays(atual,1);ev.push({data:new Date(atual),prorrogado:true});}
+  }else{
+    let c=0;
+    while(c<qtd){const u=isUtil(atual,uf,rec);ev.push({data:new Date(atual),util:u,feriado:isFer(atual,uf),recesso:rec&&emRecesso(atual),contado:u?++c:false});if(c<qtd)atual=addDays(atual,1);}
+  }
+  return{vencimento:atual,eventos:ev};
+}
+function diasRest(v){const h=new Date();h.setHours(0,0,0,0);const vv=new Date(v);vv.setHours(0,0,0,0);return Math.round((vv-h)/86400000);}
+
+function App(){
+  const [modo,setModo]=useState("vencimento");
+  const [ramo,setRamo]=useState("civel");
+  const [tribunal,setTribunal]=useState(tribunais.civel[0]);
+  const [prazo,setPrazo]=useState(prazosConfig.civel[0]);
+  const [cDias,setCDias]=useState(15);
+  const [cTipo,setCTipo]=useState("uteis");
+  const [dAto,setDAto]=useState("");
+  const [dVenc,setDVenc]=useState("");
+  const [recesso,setRecesso]=useState(true);
+  const [res,setRes]=useState(null);
+  const [busca,setBusca]=useState("");
+
+  const accent=ramoColors[ramo];
+  const lista=busca.trim()?prazosConfig[ramo].filter(p=>p.label.toLowerCase().includes(busca.toLowerCase())||(p.grupo||"").toLowerCase().includes(busca.toLowerCase())):null;
+
+  function mudarRamo(r){setRamo(r);setTribunal(tribunais[r][0]);setPrazo(prazosConfig[r][0]);setRes(null);setBusca("");}
+
+  function calc(){
+    const isC=prazo.dias===null;
+    const qtd=isC?parseInt(cDias):prazo.dias;
+    const tipo=isC?cTipo:prazo.tipo;
+    const uf=tribunal.uf;
+    if(modo==="vencimento"){
+      if(!dAto)return;
+      const inicio=new Date(dAto+"T12:00:00");
+      const{vencimento,eventos}=calcular(inicio,qtd,tipo,uf,recesso);
+      setRes({modo:"vencimento",vencimento,eventos,restam:diasRest(vencimento),qtd,tipoPrazo:tipo});
+    }else{
+      if(!dVenc)return;
+      const v=new Date(dVenc+"T12:00:00");
+      setRes({modo:"restante",vencimento:v,restam:diasRest(v)});
+    }
+  }
+
+  const sc=res?(res.restam<0?"#b02626":res.restam<=3?"#c0392b":res.restam<=7?"#e67e22":"#1a5c38"):"#1a5c38";
+
+  const inp={width:"100%",padding:"10px 12px",borderRadius:6,border:"1.5px solid #ddd",fontSize:14,background:"#fff",color:"#1a1a1a",outline:"none"};
+  const card={background:"#fff",borderRadius:10,boxShadow:"0 2px 12px #00000010",border:"1px solid #e8e8e8",padding:"22px",marginBottom:14};
+
+  return(
+    <div style={{minHeight:"100vh",background:"#f4f4f4",fontFamily:"'Segoe UI',Arial,sans-serif"}}>
+
+      {/* ── HEADER ── */}
+      <div style={{background:"#fff",borderBottom:"3px solid #b02626",boxShadow:"0 2px 8px #00000012"}}>
+        <div style={{maxWidth:860,margin:"0 auto",padding:"18px 20px"}}>
+          {/* Logo */}
+          <div style={{display:"flex",alignItems:"center",gap:20,marginBottom:16,paddingBottom:16,borderBottom:"1px solid #eee"}}>
+            <div style={{flexShrink:0}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center"}}>
+                <span style={{fontFamily:"'Segoe UI',Arial,sans-serif",fontSize:18,fontWeight:800,letterSpacing:4,color:"#2d3561",textTransform:"uppercase",lineHeight:1}}>NICASTRO SOLLER</span>
+                <div style={{display:"flex",alignItems:"center",gap:8,marginTop:4}}>
+                  <div style={{height:2,width:24,background:"#b02626"}}/>
+                  <span style={{fontSize:10,letterSpacing:5,color:"#2d3561",textTransform:"uppercase",fontWeight:600}}>ADVOGADOS</span>
+                  <div style={{height:2,width:24,background:"#b02626"}}/>
+                </div>
+              </div>
+            </div>
+            <div style={{width:1,height:44,background:"#eee",flexShrink:0}}/>
+            <div>
+              <div style={{fontSize:13,color:"#888",marginBottom:3}}>Ferramenta Jurídica Gratuita</div>
+              <div style={{display:"flex",gap:14,flexWrap:"wrap"}}>
+                <span style={{fontSize:12,color:"#b02626",fontWeight:600}}>📸 @nicastrosolleradvogados</span>
+                <span style={{fontSize:12,color:"#b02626",fontWeight:600}}>👤 @marcellanicastrosoller</span>
+              </div>
+            </div>
+          </div>
+          {/* Título */}
+          <div style={{display:"flex",alignItems:"center",gap:12}}>
+            <div style={{width:4,height:36,background:"#b02626",borderRadius:2,flexShrink:0}}/>
+            <div>
+              <h1 style={{fontSize:20,fontWeight:800,color:"#1a1a1a",margin:0,lineHeight:1.2}}>⚖️ Calculadora de Prazos Judiciais</h1>
+              <p style={{margin:"4px 0 0",fontSize:12,color:"#888"}}>CPC · CPP · CLT · Código Eleitoral — todos os prazos legais</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div style={{maxWidth:860,margin:"0 auto",padding:"20px 14px 40px"}}>
+
+        {/* Modo */}
+        <div style={{display:"flex",gap:8,marginBottom:16}}>
+          {[["vencimento","📅 Calcular vencimento"],["restante","⏳ Dias restantes"]].map(([v,l])=>(
+            <button key={v} onClick={()=>{setModo(v);setRes(null);}}
+              style={{flex:1,padding:"11px 0",borderRadius:8,border:"2px solid",
+                borderColor:modo===v?"#b02626":"#ddd",
+                background:modo===v?"#b02626":"#fff",
+                color:modo===v?"#fff":"#555",
+                fontWeight:700,fontSize:14,cursor:"pointer",transition:".15s"}}>
+              {l}
+            </button>
+          ))}
+        </div>
+
+        {/* Ramo */}
+        <div style={{marginBottom:14}}>
+          <div style={{fontSize:11,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:1,marginBottom:8}}>Ramo do Direito</div>
+          <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>
+            {Object.keys(ramoLabels).map(r=>(
+              <button key={r} onClick={()=>mudarRamo(r)}
+                style={{padding:"8px 20px",borderRadius:6,border:"2px solid",
+                  borderColor:ramo===r?ramoColors[r]:"#ddd",
+                  background:ramo===r?ramoColors[r]:"#fff",
+                  color:ramo===r?"#fff":"#444",
+                  fontWeight:700,fontSize:13,cursor:"pointer",transition:".15s"}}>
+                {ramoLabels[r]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Card principal */}
+        <div style={card}>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginBottom:14}}>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>Tribunal</label>
+              <select value={tribunal.id} onChange={e=>setTribunal(tribunais[ramo].find(t=>t.id===e.target.value))} style={inp}>
+                {tribunais[ramo].map(t=><option key={t.id} value={t.id}>{t.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{fontSize:11,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>
+                {modo==="vencimento"?"Data do Ato / Publicação":"Data de Vencimento"}
+              </label>
+              <input type="date" value={modo==="vencimento"?dAto:dVenc}
+                onChange={e=>modo==="vencimento"?setDAto(e.target.value):setDVenc(e.target.value)}
+                style={inp}/>
+            </div>
+          </div>
+
+          {modo==="vencimento"&&(
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:11,fontWeight:700,color:"#888",textTransform:"uppercase",letterSpacing:1,display:"block",marginBottom:6}}>Tipo de Prazo</label>
+              <input placeholder="🔍 Buscar prazo..." value={busca} onChange={e=>setBusca(e.target.value)} style={{...inp,marginBottom:8}}/>
+              <select size={5} value={prazo.label}
+                onChange={e=>{const p=prazosConfig[ramo].find(x=>x.label===e.target.value);if(p)setPrazo(p);}}
+                style={{...inp,minHeight:110,fontSize:13}}>
+                {(lista||prazosConfig[ramo]).map(p=>(
+                  <option key={p.label} value={p.label}>
+                    {p.grupo?`[${p.grupo}] `:""}{p.label}{p.dias!==null?` — ${p.dias}d ${p.tipo==="uteis"?"úteis":"corridos"}`:""}
+                  </option>
+                ))}
+              </select>
+              {prazo&&prazo.dias!==null&&(
+                <div style={{marginTop:8,padding:"10px 14px",background:"#fafafa",borderRadius:6,fontSize:13,color:"#333",borderLeft:`3px solid ${accent}`}}>
+                  <strong style={{color:accent}}>{prazo.label}</strong>
+                  <span style={{color:"#888",marginLeft:8}}>{prazo.dias} {prazo.tipo==="uteis"?"dias úteis":"dias corridos"}</span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {modo==="vencimento"&&prazo.dias===null&&(
+            <div style={{display:"flex",gap:12,marginBottom:14}}>
+              <div style={{flex:1}}>
+                <label style={{fontSize:11,fontWeight:700,color:"#888",display:"block",marginBottom:6}}>Quantidade de dias</label>
+                <input type="number" min={1} value={cDias} onChange={e=>setCDias(e.target.value)} style={inp}/>
+              </div>
+              <div style={{flex:1}}>
+                <label style={{fontSize:11,fontWeight:700,color:"#888",display:"block",marginBottom:6}}>Tipo</label>
+                <select value={cTipo} onChange={e=>setCTipo(e.target.value)} style={inp}>
+                  <option value="uteis">Dias úteis</option>
+                  <option value="corridos">Dias corridos</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div style={{display:"flex",alignItems:"center",gap:10,marginBottom:18}}>
+            <input type="checkbox" id="rec" checked={recesso} onChange={e=>setRecesso(e.target.checked)} style={{width:16,height:16,accentColor:"#b02626"}}/>
+            <label htmlFor="rec" style={{fontSize:12,color:"#666",cursor:"pointer"}}>
+              Suspender prazos no recesso forense (20/dez–20/jan e julho) — CPC art. 220 / CLT art. 775-A / CPP art. 798-A
+            </label>
+          </div>
+
+          <button onClick={calc}
+            style={{width:"100%",padding:"13px 0",borderRadius:8,border:"none",
+              background:"#b02626",color:"#fff",fontSize:15,fontWeight:800,cursor:"pointer",
+              letterSpacing:.5,boxShadow:"0 4px 14px #b0262633",transition:".15s"}}>
+            Calcular Prazo
+          </button>
+        </div>
+
+        {/* Resultado */}
+        {res&&(
+          <div style={{...card,padding:0,overflow:"hidden"}}>
+            {/* Status */}
+            <div style={{background:sc,padding:"18px 24px",color:"#fff",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+              <div>
+                <div style={{fontSize:11,opacity:.85,fontWeight:700,textTransform:"uppercase",letterSpacing:1}}>
+                  {res.restam<0?"⚠️ PRAZO VENCIDO":res.restam===0?"🚨 VENCE HOJE":"✅ Prazo em aberto"}
+                </div>
+                <div style={{fontSize:28,fontWeight:900,marginTop:4}}>
+                  {res.restam<0?`${Math.abs(res.restam)} dias atrás`:res.restam===0?"Hoje!":`${res.restam} dias restantes`}
+                </div>
+              </div>
+              <div style={{textAlign:"right"}}>
+                <div style={{fontSize:11,opacity:.8}}>Vencimento</div>
+                <div style={{fontSize:15,fontWeight:700,marginTop:2}}>{fmt(res.vencimento)}</div>
+              </div>
+            </div>
+
+            {/* Linha do tempo */}
+            {res.modo==="vencimento"&&res.eventos&&res.eventos.length>0&&(
+              <div style={{padding:20}}>
+                <div style={{fontSize:11,fontWeight:700,color:"#888",marginBottom:12,textTransform:"uppercase",letterSpacing:1}}>
+                  Linha do tempo — {res.qtd} {res.tipoPrazo==="uteis"?"dias úteis":"dias corridos"}
+                </div>
+                <div style={{display:"flex",flexWrap:"wrap",gap:5}}>
+                  {res.eventos.map((ev,i)=>{
+                    const isLast=i===res.eventos.length-1;
+                    let bg="#f4f4f4",border="#ddd",text="#555";
+                    if(ev.feriado){bg="#fff3f3";border="#f5c6c6";text="#8b0000";}
+                    if(ev.recesso&&!ev.feriado){bg="#fff8f0";border="#f5d6a0";text="#7c4d00";}
+                    if(ev.util&&ev.contado){bg:"#fff";border=accent;text=accent;bg="#fff5f5";}
+                    if(ev.util&&ev.contado){bg="#fff5f5";border="#b02626";text="#b02626";}
+                    if(isLast){bg=sc+"22";border=sc;text="#1a1a1a";}
+                    return(
+                      <div key={i} style={{minWidth:46,padding:"5px 7px",borderRadius:6,background:bg,border:`1.5px solid ${border}`,textAlign:"center"}}>
+                        <div style={{fontSize:9,color:"#aaa"}}>{ev.data.toLocaleDateString("pt-BR",{weekday:"short"}).replace(".","").toUpperCase()}</div>
+                        <div style={{fontSize:13,fontWeight:700,color:text}}>{ev.data.getDate().toString().padStart(2,"0")}</div>
+                        {ev.contado&&<div style={{fontSize:8,color:"#b02626",fontWeight:700}}>D{ev.contado}</div>}
+                        {ev.feriado&&<div style={{fontSize:8,color:"#b02626"}}>FER</div>}
+                        {ev.recesso&&!ev.feriado&&<div style={{fontSize:8,color:"#7c4d00"}}>REC</div>}
+                        {ev.prorrogado&&<div style={{fontSize:8,color:"#888"}}>PRO</div>}
+                        {isLast&&!ev.contado&&<div style={{fontSize:8,color:sc,fontWeight:700}}>FIM</div>}
+                      </div>
+                    );
+                  })}
+                </div>
+                <div style={{display:"flex",gap:16,marginTop:12,flexWrap:"wrap"}}>
+                  {[["#b02626","Dia contado"],["#f5c6c6","Feriado"],["#f5d6a0","Recesso"],[sc,"Vencimento"]].map(([cor,label])=>(
+                    <div key={label} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:"#888"}}>
+                      <div style={{width:10,height:10,borderRadius:2,background:cor,border:"1px solid #ddd"}}/>{label}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Info */}
+            <div style={{padding:"0 20px 18px"}}>
+              <div style={{padding:"10px 14px",background:"#fafafa",borderRadius:6,fontSize:12,color:"#666",borderLeft:`3px solid ${accent}`}}>
+                <strong style={{color:"#1a1a1a"}}>{tribunal.label}</strong> · UF: {tribunal.uf} ·{" "}
+                {res.modo==="vencimento"?`${res.tipoPrazo==="uteis"?"Dias úteis (CPC art. 219)":"Dias corridos"}`:"Modo: dias restantes"}
+                {res.modo==="vencimento"&&prazo?.label&&` · ${prazo.label}`}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Rodapé */}
+        <div style={{marginTop:28,textAlign:"center",borderTop:"1px solid #e0e0e0",paddingTop:20}}>
+          <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4}}>
+            <span style={{fontFamily:"'Segoe UI',Arial",fontSize:13,fontWeight:800,letterSpacing:4,color:"#2d3561",textTransform:"uppercase"}}>NICASTRO SOLLER</span>
+            <div style={{display:"flex",alignItems:"center",gap:8}}>
+              <div style={{height:1.5,width:18,background:"#b02626"}}/>
+              <span style={{fontSize:9,letterSpacing:4,color:"#2d3561",textTransform:"uppercase",fontWeight:600}}>ADVOGADOS</span>
+              <div style={{height:1.5,width:18,background:"#b02626"}}/>
+            </div>
+            <div style={{fontSize:11,color:"#b02626",marginTop:4,fontWeight:600}}>
+              @nicastrosolleradvogados · @marcellanicastrosoller
+            </div>
+            <div style={{fontSize:10,color:"#bbb",marginTop:4}}>
+              Ferramenta jurídica gratuita · Uso exclusivamente informativo · Sempre confirme com a legislação vigente
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.render(<App/>,document.getElementById('root'));
+</script>
+</body>
+</html>
